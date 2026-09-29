@@ -16,53 +16,6 @@ export function createBoard(w, h, cells) {
   return { w, h, cells: cells ?? new Array(w * h).fill(EMPTY) };
 }
 
-// Formas orgânicas (regiões por semente com ruído) + retângulos e círculos por cima.
-export function generateBoard(w, h, colorCount, rng, { seeds: seedBase = 8, noise = 1.2 } = {}) {
-  const board = createBoard(w, h);
-  const seeds = [];
-  const seedCount = seedBase + Math.floor(rng() * 5);
-  for (let i = 0; i < seedCount; i++) {
-    seeds.push({
-      x: rng() * w,
-      y: rng() * h,
-      c: i < colorCount ? i : Math.floor(rng() * colorCount),
-      s: 0.6 + rng() * 0.8,
-    });
-  }
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let best = Infinity;
-      let color = 0;
-      for (const s of seeds) {
-        const d = Math.hypot(x - s.x, y - s.y) * s.s + rng() * noise;
-        if (d < best) {
-          best = d;
-          color = s.c;
-        }
-      }
-      board.cells[y * w + x] = color;
-    }
-  }
-  const shapes = 3 + Math.floor(rng() * 4);
-  for (let i = 0; i < shapes; i++) {
-    const c = Math.floor(rng() * colorCount);
-    const cx = rng() * w;
-    const cy = rng() * h;
-    if (rng() < 0.5) {
-      const rw = 2 + Math.floor(rng() * 4);
-      const rh = 2 + Math.floor(rng() * 4);
-      for (let y = Math.floor(cy); y < Math.min(h, cy + rh); y++)
-        for (let x = Math.floor(cx); x < Math.min(w, cx + rw); x++) board.cells[y * w + x] = c;
-    } else {
-      const r = 1.5 + rng() * 2.5;
-      for (let y = 0; y < h; y++)
-        for (let x = 0; x < w; x++)
-          if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= r) board.cells[y * w + x] = c;
-    }
-  }
-  return board;
-}
-
 export function colorCounts(board, colorCount) {
   const counts = new Array(colorCount).fill(0);
   for (const c of board.cells) if (c !== EMPTY) counts[c]++;

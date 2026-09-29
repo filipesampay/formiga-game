@@ -18,16 +18,21 @@ export function splitCount(total, rng, min = 4, max = 12) {
   return parts;
 }
 
-export function generateLanes(counts, rng, { boxMin = 4, boxMax = 12, lanes: laneCount = LANES } = {}) {
+// depths[color] = profundidade (0 = linha de baixo, 1 = topo) de cada cubo da cor, em ordem crescente.
+// chaos 0 = caixas saem na ordem em que os cubos ficam expostos; 1 = ordem totalmente aleatória.
+export function generateLanes(counts, rng, { boxMin = 4, boxMax = 12, lanes: laneCount = LANES, chaos = 1 } = {}, depths = null) {
   const boxes = [];
   counts.forEach((total, color) => {
-    for (const n of splitCount(total, rng, boxMin, boxMax)) boxes.push({ color, total: n });
+    let at = 0;
+    for (const n of splitCount(total, rng, boxMin, boxMax)) {
+      const slice = depths ? depths[color].slice(at, at + n) : [];
+      const depth = slice.length ? slice.reduce((a, b) => a + b, 0) / slice.length : 0.5;
+      at += n;
+      boxes.push({ color, total: n, key: depth * (1 - chaos) + rng() * chaos });
+    }
   });
-  for (let i = boxes.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [boxes[i], boxes[j]] = [boxes[j], boxes[i]];
-  }
+  boxes.sort((a, b) => a.key - b.key);
   const lanes = Array.from({ length: laneCount }, () => []);
-  boxes.forEach((b, i) => lanes[i % laneCount].push(b));
+  boxes.forEach(({ color, total }, i) => lanes[i % laneCount].push({ color, total }));
   return lanes;
 }

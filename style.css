@@ -28,7 +28,7 @@ html, body {
   padding: calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 10px);
 }
 header { display: flex; align-items: center; gap: 10px; }
-.title { font-weight: 800; font-size: 18px; white-space: nowrap; }
+.title { font-weight: 800; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .progress { flex: 1; height: 10px; background: var(--panel); border-radius: 99px; overflow: hidden; }
 #progress-bar { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffc233, #ff4f8b); transition: width .2s; }
 .icon-btn {

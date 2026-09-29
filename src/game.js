@@ -1,34 +1,36 @@
 // Estado do jogo e simulação das formigas (sem DOM — testável no node).
 import {
-  generateBoard, colorCounts, computeReach, findTarget, buildPath, isCleared, createRng, EMPTY,
+  colorCounts, computeReach, findTarget, buildPath, isCleared, createRng, EMPTY,
 } from './board.js';
 import { generateLanes, SLOTS } from './boxes.js';
+import { buildLevel, levelSeed } from './levels.js';
 
-export const BOARD_W = 12;
-export const BOARD_H = 14;
 export const TUNNEL_H = 3.2;
 export const ANT_SPEED = 3.5; // células por segundo
 const SPAWN_EVERY = 0.25;
 const STUCK_DELAY = 0.8;
 
-// Dificuldade: mais cores, caixas pequenas (mais decisões) e só 3 colunas para escolher.
-export const DIFFICULTY = { colorCount: 7, seeds: 10, noise: 1.2, boxMin: 3, boxMax: 8, lanes: 3 };
-
-export function newGame(seed = Date.now(), diff = DIFFICULTY) {
-  const rng = createRng(seed);
-  const { colorCount } = diff;
-  const board = generateBoard(BOARD_W, BOARD_H, colorCount, rng, diff);
-  const lanes = generateLanes(colorCounts(board, colorCount), rng, diff);
+export function newGame(level = 1, override = {}) {
+  const rng = createRng(levelSeed(level) + 1);
+  const lv = buildLevel(level);
+  const params = { ...lv.params, ...override };
+  const { board } = lv;
+  const colorCount = board.palette.length;
+  const depths = Array.from({ length: colorCount }, () => []);
+  board.cells.forEach((c, i) => depths[c].push(1 - Math.floor(i / board.w) / (board.h - 1)));
+  depths.forEach((d) => d.sort((a, b) => a - b));
+  const lanes = generateLanes(colorCounts(board, colorCount), rng, params, depths);
   return {
-    seed, rng, board, colorCount, lanes,
+    level, name: lv.name, params, rng, board, colorCount, lanes,
     slots: new Array(SLOTS).fill(null),
     ants: [],
     reserved: new Set(),
     reach: computeReach(board),
-    hole: { x: BOARD_W / 2, y: BOARD_H + TUNNEL_H * 0.55 },
+    hole: { x: board.w / 2, y: board.h + TUNNEL_H * 0.55 },
     status: 'playing',
     stuckTime: 0,
     picked: 0,
+    total: board.cells.length,
     nextId: 1,
   };
 }
@@ -175,8 +177,4 @@ export function update(state, dt) {
   } else {
     state.stuckTime = 0;
   }
-}
-
-export function totalCells(state) {
-  return state.board.w * state.board.h;
 }

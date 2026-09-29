@@ -2,8 +2,6 @@
 import { EMPTY } from './board.js';
 import { TUNNEL_H } from './game.js';
 
-export const PALETTE = ['#ff4f8b', '#ffc233', '#1fc8a9', '#4a7dff', '#a45cf0', '#ff7a2f', '#7fd13b'];
-
 function shade(hex, amt) {
   const n = parseInt(hex.slice(1), 16);
   const f = (v) => Math.max(0, Math.min(255, Math.round(v + amt * 255)));
@@ -39,7 +37,7 @@ export function drawCube(ctx, x, y, s, color) {
   ctx.fillRect(x + s * 0.34, y + s * 0.62, s * 0.05, s * 0.05);
 }
 
-function drawAnt(ctx, ant, cell) {
+function drawAnt(ctx, ant, cell, palette) {
   const s = cell;
   ctx.save();
   ctx.translate(ant.x * s, ant.y * s);
@@ -61,7 +59,7 @@ function drawAnt(ctx, ant, cell) {
     }
   }
   // abdome colorido = cor da caixa
-  ctx.fillStyle = ant.carrying >= 0 ? PALETTE[ant.carrying] : PALETTE[ant.color];
+  ctx.fillStyle = palette[ant.color];
   ctx.beginPath();
   ctx.ellipse(-s * 0.17, 0, s * 0.13, s * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -86,7 +84,7 @@ function drawAnt(ctx, ant, cell) {
     ctx.save();
     ctx.translate(s * 0.28, 0);
     ctx.rotate(-ant.angle);
-    drawCube(ctx, -c / 2, -c / 2, c, PALETTE[ant.carrying]);
+    drawCube(ctx, -c / 2, -c / 2, c, palette[ant.carrying]);
     ctx.restore();
   }
   ctx.restore();
@@ -125,7 +123,7 @@ export function render(ctx, state, cell, time) {
       const i = y * board.w + x;
       const c = board.cells[i];
       if (c === EMPTY) continue;
-      drawCube(ctx, x * cell, y * cell, cell, PALETTE[c]);
+      drawCube(ctx, x * cell, y * cell, cell, board.palette[c]);
       if (state.reserved.has(i)) {
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.fillRect(x * cell, y * cell, cell, cell);
@@ -150,5 +148,5 @@ export function render(ctx, state, cell, time) {
   ctx.ellipse(hx, hy + cell * 0.06, cell * 1.0, cell * 0.38, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  for (const ant of state.ants) drawAnt(ctx, ant, cell);
+  for (const ant of state.ants) drawAnt(ctx, ant, cell, board.palette);
 }

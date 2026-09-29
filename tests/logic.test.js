@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  EMPTY, createBoard, createRng, generateBoard, colorCounts, computeReach, isAccessible, findTarget, buildPath,
+  EMPTY, createBoard, createRng, colorCounts, computeReach, isAccessible, findTarget, buildPath,
 } from '../src/board.js';
-import { splitCount, generateLanes } from '../src/boxes.js';
+import { splitCount } from '../src/boxes.js';
 import { newGame, update, pickLane } from '../src/game.js';
+import { TEMPLATES, ART_W, ART_H, COLORS } from '../src/art.js';
+import { buildLevel, levelParams } from '../src/levels.js';
 
 const _ = EMPTY;
 
@@ -17,15 +19,35 @@ test('splitCount soma o total e respeita limites', () => {
   }
 });
 
-test('caixas somam os pixels de cada cor', () => {
-  const rng = createRng(42);
-  const board = generateBoard(12, 14, 5, rng);
-  const counts = colorCounts(board, 5);
-  const lanes = generateLanes(counts, rng);
-  const sums = new Array(5).fill(0);
-  for (const lane of lanes) for (const b of lane) sums[b.color] += b.total;
-  assert.deepEqual(sums, counts);
-  assert.ok(board.cells.every((c) => c >= 0 && c < 5));
+test('modelos de pixel art são 12x14 e só usam chars da legenda', () => {
+  for (const t of TEMPLATES) {
+    assert.equal(t.rows.length, ART_H, t.name);
+    for (const r of t.rows) {
+      assert.equal(r.length, ART_W, `${t.name}: ${r}`);
+      for (const ch of r) assert.ok(t.legend[ch], `${t.name}: char ${ch}`);
+    }
+    for (const opts of Object.values(t.legend)) for (const c of opts) assert.ok(COLORS[c], `${t.name}: cor ${c}`);
+  }
+});
+
+test('fases 1..60: quadro cheio, paleta pequena, caixas somam cada cor', () => {
+  for (let level = 1; level <= 60; level++) {
+    const s = newGame(level);
+    assert.ok(s.board.cells.every((c) => c >= 0 && c < s.board.palette.length), `fase ${level}`);
+    assert.ok(s.board.palette.length >= 2 && s.board.palette.length <= 9, `fase ${level}: ${s.board.palette.length} cores`);
+    const counts = colorCounts(s.board, s.colorCount);
+    const sums = new Array(s.colorCount).fill(0);
+    for (const lane of s.lanes) for (const b of lane) sums[b.color] += b.total;
+    assert.deepEqual(sums, counts, `fase ${level}`);
+    assert.equal(s.lanes.length, levelParams(level).lanes);
+  }
+});
+
+test('fase é determinística e dificuldade trava no teto', () => {
+  assert.deepEqual(buildLevel(7).board.cells, buildLevel(7).board.cells);
+  assert.notDeepEqual(buildLevel(7).board.cells, buildLevel(8).board.cells);
+  assert.deepEqual(levelParams(30), levelParams(500));
+  assert.ok(levelParams(1).chaos < levelParams(30).chaos);
 });
 
 test('só a linha de baixo é acessível num quadro cheio', () => {
@@ -65,8 +87,8 @@ test('bolsão vazio fechado não conta como caminho', () => {
   assert.equal(findTarget(b, reach, 2, new Set([6, 7])).cell, 8);
 });
 
-function simulate(seed, strategy) {
-  const s = newGame(seed);
+function simulate(level, strategy) {
+  const s = newGame(level);
   for (let step = 0; step < 200000 && s.status === 'playing'; step++) {
     strategy(s);
     update(s, 1 / 30);
