@@ -9,6 +9,21 @@ export const TUNNEL_H = 3.2;
 export const ANT_SPEED = 3.5; // células por segundo
 const SPAWN_EVERY = 0.25;
 const STUCK_DELAY = 0.8;
+const EMERGE_TIME = 0.35;
+const SINK_TIME = 0.3;
+
+function turn(ant, target, dt) {
+  let d = target - ant.angle;
+  d = Math.atan2(Math.sin(d), Math.cos(d));
+  ant.angle += d * Math.min(1, dt * 14);
+}
+
+function step(ant, dx, dy, dist, dt) {
+  ant.x += dx;
+  ant.y += dy;
+  ant.phase += dist * 9; // passada acompanha a distância andada
+  turn(ant, Math.atan2(dy, dx), dt);
+}
 
 export function newGame(level = 1, override = {}) {
   const rng = createRng(levelSeed(level) + 1);
@@ -22,6 +37,7 @@ export function newGame(level = 1, override = {}) {
   const lanes = generateLanes(colorCounts(board, colorCount), rng, params, depths);
   return {
     level, name: lv.name, params, rng, board, colorCount, lanes,
+    art: board.cells.slice(),
     slots: new Array(SLOTS).fill(null),
     ants: [],
     reserved: new Set(),
@@ -32,6 +48,7 @@ export function newGame(level = 1, override = {}) {
     picked: 0,
     total: board.cells.length,
     nextId: 1,
+    events: [],
   };
 }
 
@@ -48,7 +65,16 @@ export function pickLane(state, lane) {
     toSpawn: b.total, spawnTimer: 0,
   };
   state.stuckTime = 0;
+  state.events.push({ type: 'box', slot, color: b.color });
   return true;
+}
+
+function wanderSpot(state) {
+  const { hole, rng, board } = state;
+  return {
+    x: Math.min(board.w - 0.6, Math.max(0.6, hole.x + (rng() - 0.5) * (board.w - 2))),
+    y: board.h + 0.55 + rng() * (TUNNEL_H - 1.1),
+  };
 }
 
 function spawnAnt(state, box) {
@@ -57,9 +83,10 @@ function spawnAnt(state, box) {
   state.ants.push({
     box, color: box.color, state: 'idle',
     x: hole.x + Math.cos(a) * 0.3, y: hole.y + Math.sin(a) * 0.2,
-    home: { x: hole.x + (rng() - 0.5) * 4.5, y: hole.y + (rng() - 0.3) * 1.4 },
+    home: wanderSpot(state),
+    pause: 0,
     path: null, seg: 0, target: -1, carrying: -1,
-    angle: -Math.PI / 2, phase: rng() * 10,
+    angle: a, phase: rng() * 10, age: 0, sink: 0,
   });
 }
 
@@ -76,22 +103,19 @@ function assignTarget(state, ant) {
 
 // Move formiga ao longo do caminho; retorna true ao chegar no fim.
 function walk(ant, dt) {
-  let step = ANT_SPEED * dt;
-  while (step > 0 && ant.seg < ant.path.length) {
+  let left = ANT_SPEED * dt;
+  while (left > 0 && ant.seg < ant.path.length) {
     const p = ant.path[ant.seg];
     const dx = p.x - ant.x;
     const dy = p.y - ant.y;
     const d = Math.hypot(dx, dy);
-    if (d > 1e-6) ant.angle = Math.atan2(dy, dx);
-    if (d <= step) {
-      ant.x = p.x;
-      ant.y = p.y;
-      step -= d;
+    if (d <= left) {
+      if (d > 1e-6) step(ant, dx, dy, d, dt);
+      left -= d;
       ant.seg++;
     } else {
-      ant.x += (dx / d) * step;
-      ant.y += (dy / d) * step;
-      step = 0;
+      step(ant, (dx / d) * left, (dy / d) * left, left, dt);
+      left = 0;
     }
   }
   return ant.seg >= ant.path.length;
@@ -106,9 +130,15 @@ function pickUp(state, ant) {
   state.picked++;
   const box = ant.box;
   box.remaining--;
+  const { w } = board;
+  state.events.push({
+    type: 'pick', color: ant.carrying, x: (ant.target % w) + 0.5, y: Math.floor(ant.target / w) + 0.5,
+    slot: state.slots.indexOf(box),
+  });
   if (box.remaining <= 0) {
     const s = state.slots.indexOf(box);
     if (s >= 0) state.slots[s] = null;
+    state.events.push({ type: 'boxDone', slot: s, color: box.color });
   }
   const back = ant.path.slice().reverse();
   back.push({ x: state.hole.x, y: state.hole.y });
@@ -127,10 +157,41 @@ function isStuck(state) {
   return state.slots.some((b) => b !== null);
 }
 
+function moveAnt(state, ant, dt, playing) {
+  ant.age += dt;
+  if (ant.state === 'idle') {
+    if (playing && ant.age > EMERGE_TIME * 0.6 && assignTarget(state, ant)) return;
+    if (!playing) return;
+    // passeia pelo túnel esperando um cubo liberar
+    if (ant.pause > 0) {
+      ant.pause -= dt;
+      ant.phase += dt * 1.5;
+      return;
+    }
+    const dx = ant.home.x - ant.x;
+    const dy = ant.home.y - ant.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.05) {
+      ant.pause = 0.4 + state.rng() * 1.6;
+      ant.home = wanderSpot(state);
+      return;
+    }
+    const s = Math.min(d, ANT_SPEED * 0.35 * dt);
+    step(ant, (dx / d) * s, (dy / d) * s, s, dt);
+  } else if (ant.state === 'go') {
+    if (walk(ant, dt)) pickUp(state, ant);
+  } else if (ant.state === 'back') {
+    if (walk(ant, dt)) ant.state = 'sink';
+  } else if (ant.state === 'sink') {
+    ant.sink += dt / SINK_TIME;
+    if (ant.sink >= 1) ant.state = 'gone';
+  }
+}
+
 export function update(state, dt) {
   dt = Math.min(dt, 0.05);
   if (state.status !== 'playing') {
-    for (const ant of state.ants) if (ant.state === 'back' && walk(ant, dt)) ant.state = 'gone';
+    for (const ant of state.ants) moveAnt(state, ant, dt, false);
     state.ants = state.ants.filter((a) => a.state !== 'gone');
     return;
   }
@@ -145,35 +206,20 @@ export function update(state, dt) {
     }
   }
 
-  for (const ant of state.ants) {
-    ant.phase += dt * 12;
-    if (ant.state === 'idle') {
-      if (!assignTarget(state, ant)) {
-        const dx = ant.home.x - ant.x;
-        const dy = ant.home.y - ant.y;
-        const d = Math.hypot(dx, dy);
-        if (d > 0.05) {
-          const s = Math.min(d, ANT_SPEED * 0.4 * dt);
-          ant.x += (dx / d) * s;
-          ant.y += (dy / d) * s;
-          ant.angle = Math.atan2(dy, dx);
-        }
-      }
-    } else if (ant.state === 'go') {
-      if (walk(ant, dt)) pickUp(state, ant);
-    } else if (ant.state === 'back') {
-      if (walk(ant, dt)) ant.state = 'gone';
-    }
-  }
+  for (const ant of state.ants) moveAnt(state, ant, dt, true);
   state.ants = state.ants.filter((a) => a.state !== 'gone');
 
   if (isCleared(state.board)) {
     state.status = 'won';
+    state.events.push({ type: 'won' });
     return;
   }
   if (isStuck(state)) {
     state.stuckTime += dt;
-    if (state.stuckTime >= STUCK_DELAY) state.status = 'lost';
+    if (state.stuckTime >= STUCK_DELAY) {
+      state.status = 'lost';
+      state.events.push({ type: 'lost' });
+    }
   } else {
     state.stuckTime = 0;
   }

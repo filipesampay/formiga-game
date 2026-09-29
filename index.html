@@ -7,28 +7,57 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Formigas">
-  <meta name="theme-color" content="#2b1a0e">
+  <meta name="theme-color" content="#24150c">
   <title>Formigas no Açúcar</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐜</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="ant" viewBox="0 0 32 20">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 10 L12 3 L8 1 M15 10 L12 17 L8 19 M18 10 L18 2 L15 0.5 M18 10 L18 18 L15 19.5 M21 10 L24 3 L27 2 M21 10 L24 17 L27 18"/>
+        <path d="M27 8 L30 4 M27 12 L30 16"/>
+      </g>
+      <ellipse cx="8" cy="10" rx="7" ry="5.2" fill="currentColor"/>
+      <ellipse cx="17.5" cy="10" rx="3.4" ry="2.6" fill="currentColor"/>
+      <circle cx="24.5" cy="10" r="3.4" fill="currentColor"/>
+    </symbol>
+  </svg>
+
   <div id="app">
-    <header>
-      <div id="level" class="title">🐜 Formigas</div>
-      <div id="progress" class="progress"><span id="progress-bar"></span></div>
-      <button id="restart" class="icon-btn" aria-label="Reiniciar fase">↻</button>
+    <header class="hud">
+      <div class="level">
+        <span id="level-num" class="level-num">1</span>
+        <span id="level-name" class="level-name"></span>
+      </div>
+      <div class="progress" role="progressbar" aria-label="Cubos levados" aria-valuemin="0" aria-valuemax="100">
+        <span id="progress-bar"></span>
+      </div>
+      <button id="sound" class="icon-btn" aria-label="Som"></button>
+      <button id="restart" class="icon-btn" aria-label="Reiniciar fase">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3v5h-5"/></svg>
+      </button>
     </header>
-    <main id="stage"><canvas id="canvas"></canvas></main>
-    <section id="slots" aria-label="Formigas em campo"></section>
-    <section id="lanes" aria-label="Escolha uma cor"></section>
+
+    <main id="stage">
+      <canvas id="canvas"></canvas>
+      <div id="banner" class="banner" hidden></div>
+    </main>
+
+    <section id="slots" class="slots" aria-label="Formigas trabalhando"></section>
+    <section id="lanes" class="lanes" aria-label="Caixas de formigas"></section>
   </div>
-  <div id="overlay" hidden>
+
+  <div id="overlay" class="overlay" hidden>
     <div class="card">
-      <div id="overlay-emoji" class="big"></div>
+      <canvas id="thumb" class="thumb"></canvas>
       <h1 id="overlay-title"></h1>
       <p id="overlay-text"></p>
-      <button id="again" class="btn">Jogar de novo</button>
+      <button id="again" class="btn"></button>
     </div>
   </div>
   <script type="module" src="src/main.js"></script>
