@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Formigas">
+  <meta name="theme-color" content="#2b1a0e">
+  <title>Formigas no Açúcar</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐜</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="title">🐜 Formigas</div>
+      <div id="progress" class="progress"><span id="progress-bar"></span></div>
+      <button id="restart" class="icon-btn" aria-label="Novo jogo">↻</button>
+    </header>
+    <main id="stage"><canvas id="canvas"></canvas></main>
+    <section id="slots" aria-label="Formigas em campo"></section>
+    <section id="lanes" aria-label="Escolha uma cor"></section>
+  </div>
+  <div id="overlay" hidden>
+    <div class="card">
+      <div id="overlay-emoji" class="big"></div>
+      <h1 id="overlay-title"></h1>
+      <p id="overlay-text"></p>
+      <button id="again" class="btn">Jogar de novo</button>
+    </div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
