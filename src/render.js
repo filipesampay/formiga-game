@@ -1,6 +1,6 @@
 // Desenho do quadro, túnel, formigas e partículas no canvas.
 import { EMPTY, accessPoint } from './board.js';
-import { TUNNEL_H } from './game.js';
+import { TUNNEL_H, GUTTER } from './game.js';
 
 const SOIL = '#3a2314';
 const SOIL_DEEP = '#1f130a';
@@ -74,8 +74,8 @@ let bgCache = null;
 function background(board, cell, dpr) {
   const key = `${board.w}|${board.h}|${cell}|${dpr}`;
   if (bgCache?.key === key) return bgCache.canvas;
-  const W = board.w * cell;
-  const H = (board.h + TUNNEL_H) * cell;
+  const W = (board.w + GUTTER * 2) * cell;
+  const H = (board.h + GUTTER + TUNNEL_H) * cell;
   const c = document.createElement('canvas');
   c.width = Math.ceil(W * dpr);
   c.height = Math.ceil(H * dpr);
@@ -89,7 +89,7 @@ function background(board, cell, dpr) {
   x.fillRect(0, 0, W, H);
   let seed = 7;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const top = board.h * cell;
+  const top = (board.h + GUTTER) * cell;
   for (let i = 0; i < 3; i++) {
     x.strokeStyle = `rgba(0,0,0,${0.12 + i * 0.04})`;
     x.lineWidth = cell * 0.06;
@@ -123,6 +123,18 @@ function background(board, cell, dpr) {
     }
     x.stroke();
   }
+  // trilha batida do corredor em volta do desenho
+  const G = GUTTER * cell;
+  x.strokeStyle = 'rgba(0,0,0,0.22)';
+  x.lineWidth = cell * 0.62;
+  x.lineJoin = 'round';
+  x.beginPath();
+  x.moveTo(G - cell * 0.5, top + cell * 0.5);
+  x.lineTo(G - cell * 0.5, G - cell * 0.5);
+  x.lineTo(G + (board.w + 0.5) * cell, G - cell * 0.5);
+  x.lineTo(G + (board.w + 0.5) * cell, top + cell * 0.5);
+  x.lineTo(G - cell * 0.5, top + cell * 0.5);
+  x.stroke();
   bgCache = { key, canvas: c };
   return c;
 }
@@ -301,14 +313,58 @@ function drawAnt(ctx, ant, cell, palette, time, dpr) {
   ctx.restore();
 }
 
+// Muro em volta do desenho com vãos nas portas (sem portas = borda toda aberta).
+function drawDoors(ctx, board, cell) {
+  if (!board.doors) return;
+  const { w, h } = board;
+  const t = cell * 0.16;
+  ctx.fillStyle = '#6b4128';
+  const isDoor = (x, y) => board.doors.has(`${x},${y}`);
+  for (let x = 0; x < w; x++) {
+    if (!isDoor(x + 0.5, -0.5)) ctx.fillRect(x * cell, -t, cell, t);
+    if (!isDoor(x + 0.5, h + 0.5)) ctx.fillRect(x * cell, h * cell, cell, t);
+  }
+  for (let y = 0; y < h; y++) {
+    if (!isDoor(-0.5, y + 0.5)) ctx.fillRect(-t, y * cell, t, cell);
+    if (!isDoor(w + 0.5, y + 0.5)) ctx.fillRect(w * cell, y * cell, t, cell);
+  }
+  // cantos
+  for (const [x, y] of [[-t, -t], [w * cell, -t], [-t, h * cell], [w * cell, h * cell]]) ctx.fillRect(x, y, t, t);
+  // portas: entrada escura com borda de argila
+  for (const key of board.doors) {
+    const [dx, dy] = key.split(',').map(Number);
+    const px = dx * cell;
+    const py = dy * cell;
+    const horiz = dy < 0 || dy > h;
+    const ex = dx < 0 ? 0 : dx > w ? w * cell : px;
+    const ey = dy < 0 ? 0 : dy > h ? h * cell : py;
+    ctx.fillStyle = CLAY;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, horiz ? cell * 0.46 : cell * 0.22, horiz ? cell * 0.22 : cell * 0.46, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0d0703';
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, horiz ? cell * 0.34 : cell * 0.14, horiz ? cell * 0.14 : cell * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 // ---------- quadro ----------
 export function render(ctx, state, cell, time, dt, dpr = 1, reduced = false) {
   const { board, hole } = state;
   const W = board.w * cell;
   const H = board.h * cell;
-  const T = TUNNEL_H * cell;
-  ctx.clearRect(0, 0, W, H + T);
-  if (typeof document !== 'undefined') ctx.drawImage(background(board, cell, dpr), 0, 0, W, H + T);
+  const G = GUTTER * cell;
+  const fullW = W + G * 2;
+  const fullH = G + H + TUNNEL_H * cell;
+  ctx.save();
+  ctx.clearRect(0, 0, fullW, fullH);
+  if (typeof document !== 'undefined') ctx.drawImage(background(board, cell, dpr), 0, 0, fullW, fullH);
+  ctx.translate(G, G);
+
+  // moldura do desenho
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(-cell * 0.08, -cell * 0.08, W + cell * 0.16, H + cell * 0.16);
 
   // túneis cavados: terra escura com sombra embaixo dos cubos
   for (let y = 0; y < board.h; y++) {
@@ -350,12 +406,8 @@ export function render(ctx, state, cell, time, dt, dpr = 1, reduced = false) {
     }
   }
 
-  // borda entre o desenho e o túnel
-  const edge = ctx.createLinearGradient(0, H, 0, H + cell * 0.4);
-  edge.addColorStop(0, 'rgba(0,0,0,0.5)');
-  edge.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = edge;
-  ctx.fillRect(0, H, W, cell * 0.4);
+
+  drawDoors(ctx, board, cell);
 
   // formigueiro
   const hx = hole.x * cell;
@@ -377,6 +429,7 @@ export function render(ctx, state, cell, time, dt, dpr = 1, reduced = false) {
   for (const ant of ants) drawAnt(ctx, ant, cell, board.palette, time, dpr);
 
   drawParticles(ctx, cell, dt);
+  ctx.restore();
 }
 
 // Miniatura do desenho original (tela de fim de fase).

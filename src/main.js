@@ -1,4 +1,4 @@
-import { newGame, update, pickLane, canPick, TUNNEL_H } from './game.js';
+import { newGame, update, pickLane, canPick, TUNNEL_H, GUTTER } from './game.js';
 import { render, burst, clearParticles, drawThumb } from './render.js';
 import * as sfx from './audio.js';
 
@@ -58,14 +58,14 @@ function start(level) {
 }
 
 function resize() {
-  const { w, h } = state.board;
-  const rows = h + TUNNEL_H;
+  const cols = state.board.w + GUTTER * 2;
+  const rows = GUTTER + state.board.h + TUNNEL_H;
   const r = stage.getBoundingClientRect();
-  cell = Math.max(8, Math.floor(Math.min(r.width / w, r.height / rows)));
+  cell = Math.max(8, Math.floor(Math.min(r.width / cols, r.height / rows)));
   dpr = Math.min(3, window.devicePixelRatio || 1);
-  canvas.style.width = `${cell * w}px`;
+  canvas.style.width = `${cell * cols}px`;
   canvas.style.height = `${cell * rows}px`;
-  canvas.width = Math.round(cell * w * dpr);
+  canvas.width = Math.round(cell * cols * dpr);
   canvas.height = Math.round(cell * rows * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }

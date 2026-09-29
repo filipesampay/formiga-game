@@ -19,7 +19,7 @@ export function splitCount(total, rng, min = 4, max = 12) {
 }
 
 // depths[color] = profundidade (0 = linha de baixo, 1 = topo) de cada cubo da cor, em ordem crescente.
-// chaos 0 = caixas saem na ordem em que os cubos ficam expostos; 1 = ordem totalmente aleatória.
+// chaos 0 = caixas saem na ordem em que os cubos ficam expostos; 1 = aleatória; 2 = puxa o centro primeiro.
 export function generateLanes(counts, rng, { boxMin = 4, boxMax = 12, lanes: laneCount = LANES, chaos = 1 } = {}, depths = null) {
   const boxes = [];
   counts.forEach((total, color) => {
@@ -28,7 +28,7 @@ export function generateLanes(counts, rng, { boxMin = 4, boxMax = 12, lanes: lan
       const slice = depths ? depths[color].slice(at, at + n) : [];
       const depth = slice.length ? slice.reduce((a, b) => a + b, 0) / slice.length : 0.5;
       at += n;
-      boxes.push({ color, total: n, key: depth * (1 - chaos) + rng() * chaos });
+      boxes.push({ color, total: n, key: depth * (1 - chaos) + rng() * Math.min(1, chaos) });
     }
   });
   boxes.sort((a, b) => a.key - b.key);

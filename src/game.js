@@ -6,6 +6,7 @@ import { generateLanes, SLOTS } from './boxes.js';
 import { buildLevel, levelSeed } from './levels.js';
 
 export const TUNNEL_H = 3.2;
+export const GUTTER = 0.9; // corredor em volta do desenho (laterais e topo)
 export const ANT_SPEED = 3.5; // células por segundo
 const SPAWN_EVERY = 0.25;
 const STUCK_DELAY = 0.8;
@@ -27,12 +28,18 @@ function step(ant, dx, dy, dist, dt) {
 
 export function newGame(level = 1, override = {}) {
   const rng = createRng(levelSeed(level) + 1);
-  const lv = buildLevel(level);
+  const lv = buildLevel(level, undefined, override);
   const params = { ...lv.params, ...override };
   const { board } = lv;
   const colorCount = board.palette.length;
   const depths = Array.from({ length: colorCount }, () => []);
-  board.cells.forEach((c, i) => depths[c].push(1 - Math.floor(i / board.w) / (board.h - 1)));
+  // profundidade = distância até a borda mais perto (0 = borda, 1 = centro)
+  const maxRing = Math.floor((Math.min(board.w, board.h) - 1) / 2) || 1;
+  board.cells.forEach((c, i) => {
+    const x = i % board.w;
+    const y = Math.floor(i / board.w);
+    depths[c].push(Math.min(x, y, board.w - 1 - x, board.h - 1 - y) / maxRing);
+  });
   depths.forEach((d) => d.sort((a, b) => a - b));
   const lanes = generateLanes(colorCounts(board, colorCount), rng, params, depths);
   return {

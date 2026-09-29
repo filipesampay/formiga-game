@@ -34,7 +34,7 @@ test('fases 1..60: quadro cheio, paleta pequena, caixas somam cada cor', () => {
   for (let level = 1; level <= 60; level++) {
     const s = newGame(level);
     assert.ok(s.board.cells.every((c) => c >= 0 && c < s.board.palette.length), `fase ${level}`);
-    assert.ok(s.board.palette.length >= 2 && s.board.palette.length <= 9, `fase ${level}: ${s.board.palette.length} cores`);
+    assert.ok(s.board.palette.length >= 2 && s.board.palette.length <= 10, `fase ${level}: ${s.board.palette.length} cores`);
     const counts = colorCounts(s.board, s.colorCount);
     const sums = new Array(s.colorCount).fill(0);
     for (const lane of s.lanes) for (const b of lane) sums[b.color] += b.total;
@@ -50,41 +50,52 @@ test('fase é determinística e dificuldade trava no teto', () => {
   assert.ok(levelParams(1).chaos < levelParams(30).chaos);
 });
 
-test('só a linha de baixo é acessível num quadro cheio', () => {
-  const b = createBoard(3, 3, [0, 0, 0, 1, 1, 1, 2, 2, 2]);
+test('num quadro cheio só as bordas são acessíveis', () => {
+  const b = createBoard(3, 3, [0, 0, 0, 1, 2, 1, 0, 0, 0]);
   const reach = computeReach(b);
   assert.deepEqual([...Array(9).keys()].map((i) => isAccessible(b, reach, i)),
-    [false, false, false, false, false, false, true, true, true]);
+    [true, true, true, true, false, true, true, true, true]);
+  assert.equal(findTarget(b, reach, 2, new Set()), null);
 });
 
-test('cubo fica acessível por túnel aberto até o fundo', () => {
-  // coluna do meio vazia do fundo até a linha 1
+test('cubo do meio fica acessível quando um vizinho abre caminho até a borda', () => {
   const b = createBoard(3, 3, [
-    0, 1, 0,
-    0, _, 0,
-    0, _, 0,
+    0, 0, 0,
+    _, 2, 0,
+    0, 0, 0,
   ]);
   const reach = computeReach(b);
-  assert.ok(isAccessible(b, reach, 1)); // cor 1 no topo, acima do túnel
-  assert.ok(isAccessible(b, reach, 3)); // lado do túnel
-  assert.ok(!isAccessible(b, reach, 0));
-  const t = findTarget(b, reach, 1, new Set());
-  assert.equal(t.cell, 1);
+  const t = findTarget(b, reach, 2, new Set());
+  assert.equal(t.cell, 4);
+  assert.equal(t.from, 3);
   const path = buildPath(b, reach, t);
-  assert.deepEqual(path[0], { x: 1.5, y: 3.5 });
-  assert.equal(path.length, 4);
+  // sai do túnel, sobe pelo corredor da esquerda, entra pela borda
+  assert.deepEqual(path[0], { x: -0.5, y: 3.5 });
+  assert.deepEqual(path[1], { x: -0.5, y: 1.5 });
+  assert.deepEqual(path[2], { x: 0.5, y: 1.5 });
 });
 
 test('bolsão vazio fechado não conta como caminho', () => {
-  const b = createBoard(3, 3, [
-    0, 1, 0,
-    0, _, 0,
-    2, 2, 2,
+  const b = createBoard(5, 5, [
+    0, 0, 0, 0, 0,
+    0, 1, 1, 1, 0,
+    0, 1, _, 1, 0,
+    0, 1, 3, 1, 0,
+    0, 0, 0, 0, 0,
   ]);
   const reach = computeReach(b);
-  assert.ok(!isAccessible(b, reach, 1));
-  assert.equal(findTarget(b, reach, 1, new Set()), null);
-  assert.equal(findTarget(b, reach, 2, new Set([6, 7])).cell, 8);
+  assert.equal(findTarget(b, reach, 3, new Set()), null);
+  assert.ok(!isAccessible(b, reach, 7));
+});
+
+test('prefere a entrada mais perto do formigueiro (embaixo)', () => {
+  const b = createBoard(3, 3, [1, 1, 1, 1, 0, 1, 1, 1, 1]);
+  const reach = computeReach(b);
+  assert.equal(findTarget(b, reach, 1, new Set()).cell, 7);
+  // topo só por último
+  const all = new Set([0, 1, 2, 3, 5, 6, 7, 8]);
+  all.delete(1);
+  assert.equal(findTarget(b, reach, 1, all).cell, 1);
 });
 
 function simulate(level, strategy) {
