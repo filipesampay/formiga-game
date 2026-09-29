@@ -254,3 +254,8 @@ function frame(now) {
 
 start(loadLevel());
 requestAnimationFrame(frame);
+
+// guarda o jogo no aparelho para abrir sem internet
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

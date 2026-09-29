@@ -5,3 +5,4 @@ Jogo web (sem instalar, roda no Safari do iPhone). Cada fase é um desenho em pi
 - Jogar: https://filipesampay.github.io/formiga-game/
 - Local: `python3 -m http.server` e abrir http://localhost:8000
 - Testes: `node --test tests/`
+- Offline: `sw.js` guarda o jogo no aparelho. Antes de publicar, rode `node tools/stamp.mjs` (o teste falha se esquecer).

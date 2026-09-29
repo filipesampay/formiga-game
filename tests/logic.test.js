@@ -144,3 +144,8 @@ test('escolher só a primeira pista leva a derrota em algum seed', () => {
   }
   assert.ok(losses > 0);
 });
+
+test('sw.js está carimbado com a versão atual dos arquivos (rode node tools/stamp.mjs)', async () => {
+  const { stampBlock, readSw } = await import('../tools/stamp.mjs');
+  assert.ok(readSw().includes(stampBlock()), 'sw.js desatualizado: rode node tools/stamp.mjs');
+});
