@@ -1,5 +1,5 @@
 import { newGame, update, pickLane, canPick, TUNNEL_H, GUTTER } from './game.js';
-import { render, burst, clearParticles, drawThumb } from './render.js';
+import { render, burst, rubble, clearParticles, drawThumb } from './render.js';
 import * as sfx from './audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -171,6 +171,9 @@ function handleEvents() {
       sfx.pop();
       burst(ev.x, ev.y, state.board.palette[ev.color], reducedMotion.matches);
       animate(slotsEl.children[ev.slot], 'bump');
+    } else if (ev.type === 'crumble') {
+      sfx.crumble();
+      for (const c of ev.cells) rubble(c.x, c.y, reducedMotion.matches);
     } else if (ev.type === 'boxDone') {
       sfx.boxDone();
       animate(slotsEl.children[ev.slot], 'done');

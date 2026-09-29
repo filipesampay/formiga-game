@@ -1,5 +1,6 @@
 // Quadro de cubos de açúcar: geração e regras de acesso.
 export const EMPTY = -1;
+export const STONE = -2; // pedra: bloqueia, não é carregada, quebra quando o açúcar em volta some
 
 export function createRng(seed) {
   let a = seed >>> 0;
@@ -18,12 +19,12 @@ export function createBoard(w, h, cells) {
 
 export function colorCounts(board, colorCount) {
   const counts = new Array(colorCount).fill(0);
-  for (const c of board.cells) if (c !== EMPTY) counts[c]++;
+  for (const c of board.cells) if (c >= 0) counts[c]++;
   return counts;
 }
 
 export function isCleared(board) {
-  return board.cells.every((c) => c === EMPTY);
+  return board.cells.every((c) => c < 0);
 }
 
 function neighbors(board, i) {
@@ -142,7 +143,7 @@ export function computeReach(board) {
 
 // De onde a formiga pega o cubo: célula vazia vizinha (from) ou direto do corredor (from = -1).
 export function accessPoint(board, reach, i) {
-  if (board.cells[i] === EMPTY) return null;
+  if (board.cells[i] < 0) return null;
   let best = null;
   const e = isBorder(board, i) ? entryFor(board, i) : null;
   if (e) best = { from: -1, dist: e.cost, entry: e.point };
@@ -188,4 +189,53 @@ export function buildPath(board, reach, target) {
   const last = pts[pts.length - 1];
   pts.push({ x: (last.x + t.x) / 2, y: (last.y + t.y) / 2 });
   return pts;
+}
+
+// Quantos vizinhos de uma pedra ainda são açúcar (para rachaduras) e se ela já pode quebrar.
+export function stoneHold(board, i) {
+  let sugar = 0;
+  let around = 0;
+  for (const m of neighbors(board, i)) {
+    if (board.cells[m] === STONE) continue;
+    around++;
+    if (board.cells[m] >= 0) sugar++;
+  }
+  return { sugar, around };
+}
+
+// Quebra todas as pedras sem açúcar encostado; devolve as células que viraram vazio.
+export function crumbleStones(board) {
+  const out = [];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < board.cells.length; i++) {
+      if (board.cells[i] === STONE && stoneHold(board, i).sugar === 0) {
+        board.cells[i] = EMPTY;
+        out.push(i);
+        changed = true;
+      }
+    }
+  }
+  return out;
+}
+
+// Dá para limpar o desenho inteiro (ignorando cores)? Tira qualquer cubo alcançável,
+// deixa as pedras quebrarem e repete. Garante que pedras nunca trancam açúcar para sempre.
+export function isClearable(board) {
+  const b = { ...board, cells: board.cells.slice() };
+  crumbleStones(b);
+  for (;;) {
+    if (b.cells.every((c) => c < 0)) return true;
+    const reach = computeReach(b);
+    let took = false;
+    for (let i = 0; i < b.cells.length; i++) {
+      if (b.cells[i] >= 0 && accessPoint(b, reach, i)) {
+        b.cells[i] = EMPTY;
+        took = true;
+      }
+    }
+    if (!took) return false;
+    crumbleStones(b);
+  }
 }

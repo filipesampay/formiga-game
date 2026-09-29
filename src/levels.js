@@ -1,5 +1,7 @@
 // Fases infinitas: cada fase tem semente fixa (tentar de novo repete o desenho) e dificuldade crescente.
-import { createRng, createBoard, EMPTY, perimeterPoints, doorKey } from './board.js';
+import {
+  createRng, createBoard, EMPTY, STONE, perimeterPoints, doorKey, isClearable,
+} from './board.js';
 import { makeDrawing, KINDS, ART_W, ART_H, COLORS } from './art.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -17,6 +19,8 @@ export function levelParams(level) {
     boxMax: Math.round(lerp(12, 5, t)),
     sprinkle: lerp(0, 0.05, t),
     bgPattern: level >= 6 ? ['listras', 'xadrez', 'aneis'] : null,
+    stones: level < 5 ? 0 : Math.round(lerp(1, 7, t)), // grupos de pedra
+    stoneSize: 1 + Math.round(lerp(0, 3, t)), // até 4 pedras por grupo
   };
 }
 
@@ -43,14 +47,19 @@ function tint(hex, amt) {
 
 // Fundo do desenho vira um padrão de duas cores (listras, xadrez ou anéis).
 // Sem isso o fundo encosta em todas as bordas e as caixas dessa cor nunca travam.
-function patternBackground(cells, hexes, rng, kinds) {
-  const counts = new Array(hexes.length).fill(0);
+// Cor de fundo = a que mais aparece na borda do desenho.
+function backgroundColor(cells, colorCount) {
+  const counts = new Array(colorCount).fill(0);
   for (let i = 0; i < cells.length; i++) {
     const x = i % ART_W;
     const y = Math.floor(i / ART_W);
     if (x === 0 || y === 0 || x === ART_W - 1 || y === ART_H - 1) counts[cells[i]]++;
   }
-  const bg = counts.indexOf(Math.max(...counts));
+  return counts.indexOf(Math.max(...counts));
+}
+
+function patternBackground(cells, hexes, rng, kinds) {
+  const bg = backgroundColor(cells, hexes.length);
   const lum = hexes[bg].slice(1).match(/../g).reduce((a, h) => a + parseInt(h, 16), 0) / 765;
   hexes.push(tint(hexes[bg], lum > 0.55 ? -0.28 : 0.3));
   const alt = hexes.length - 1;
@@ -65,6 +74,46 @@ function patternBackground(cells, hexes, rng, kinds) {
       : ring % 2;
     if (on) cells[i] = alt;
   }
+  return [bg, alt];
+}
+
+// Grupos de pedra sobre o fundo (nunca no bicho/rosto), separados entre si.
+function scatterStones(cells, bgColors, groups, maxSize, rng) {
+  const out = cells.slice();
+  const isBg = (i) => bgColors.includes(out[i]);
+  const nb = (i) => {
+    const x = i % ART_W;
+    const y = Math.floor(i / ART_W);
+    return [x > 0 && i - 1, x < ART_W - 1 && i + 1, y > 0 && i - ART_W, y < ART_H - 1 && i + ART_W]
+      .filter((v) => v !== false);
+  };
+  const nearStone = (i) => nb(i).some((m) => out[m] === STONE);
+  for (let g = 0; g < groups; g++) {
+    const free = [];
+    for (let i = 0; i < out.length; i++) if (isBg(i) && !nearStone(i)) free.push(i);
+    if (!free.length) break;
+    const group = [free[Math.floor(rng() * free.length)]];
+    const size = 1 + Math.floor(rng() * maxSize);
+    while (group.length < size) {
+      const opts = group.flatMap(nb).filter((m) => isBg(m) && !group.includes(m) && !nearStone(m));
+      if (!opts.length) break;
+      group.push(opts[Math.floor(rng() * opts.length)]);
+    }
+    for (const i of group) out[i] = STONE;
+  }
+  return out;
+}
+
+// Coloca pedras sem nunca deixar a fase impossível: testa com o resolvedor e,
+// se trancar açúcar, sorteia de novo; se insistir, usa menos grupos.
+function placeStones(board, bgColors, groups, maxSize, rng) {
+  for (let g = groups; g > 0; g--) {
+    for (let tries = 0; tries < 12; tries++) {
+      const cells = scatterStones(board.cells, bgColors, g, maxSize, rng);
+      if (isClearable({ ...board, cells })) return cells;
+    }
+  }
+  return board.cells;
 }
 
 // Portas espalhadas pelo perímetro; null = borda inteira aberta.
@@ -106,9 +155,12 @@ export function buildLevel(level, rng = createRng(levelSeed(level)), override = 
     }
   }
   const hexes = palette.map((n) => COLORS[n]);
-  if (params.bgPattern) patternBackground(cells, hexes, rng, params.bgPattern);
+  const bgColors = params.bgPattern
+    ? patternBackground(cells, hexes, rng, params.bgPattern)
+    : [backgroundColor(cells, hexes.length)];
   const board = createBoard(ART_W, ART_H, cells);
   board.palette = hexes;
   board.doors = pickDoors(board, params.doors, rng);
+  if (params.stones) board.cells = placeStones(board, bgColors, params.stones, params.stoneSize, rng);
   return { board, name: art.name, params };
 }

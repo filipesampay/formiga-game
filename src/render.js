@@ -1,5 +1,5 @@
 // Desenho do quadro, túnel, formigas e partículas no canvas.
-import { EMPTY, accessPoint } from './board.js';
+import { EMPTY, STONE, accessPoint, stoneHold } from './board.js';
 import { TUNNEL_H, GUTTER } from './game.js';
 
 const SOIL = '#3a2314';
@@ -67,6 +67,58 @@ function cubeSprite(color, s, dpr) {
 export function drawCube(ctx, x, y, s, color, dpr = 1) {
   if (typeof document === 'undefined') return paintCube(ctx, x, y, s, color);
   ctx.drawImage(cubeSprite(color, Math.round(s), dpr), x, y, s, s);
+}
+
+// Pedra: bloco cinza facetado; rachaduras aparecem conforme o açúcar em volta some (crack 0..1).
+function paintStone(ctx, x, y, s, seed) {
+  const pad = s * 0.03;
+  const w = s - pad * 2;
+  roundRect(ctx, x + pad, y + pad, w, w, s * 0.1);
+  ctx.fillStyle = '#4d4a52';
+  ctx.fill();
+  roundRect(ctx, x + pad, y + pad, w, w - s * 0.1, s * 0.1);
+  const g = ctx.createLinearGradient(x, y, x + s, y + s);
+  g.addColorStop(0, '#a7a3ad');
+  g.addColorStop(1, '#77737e');
+  ctx.fillStyle = g;
+  ctx.fill();
+  // facetas
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.12, y + s * 0.14);
+  ctx.lineTo(x + s * (0.5 + (seed % 3) * 0.08), y + s * 0.12);
+  ctx.lineTo(x + s * 0.3, y + s * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.14)';
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.88, y + s * 0.5);
+  ctx.lineTo(x + s * 0.86, y + s * 0.8);
+  ctx.lineTo(x + s * 0.55, y + s * 0.82);
+  ctx.closePath();
+  ctx.fill();
+}
+
+const CRACKS = [
+  [[0.5, 0.1], [0.42, 0.35], [0.55, 0.5]],
+  [[0.55, 0.5], [0.3, 0.62], [0.18, 0.85]],
+  [[0.55, 0.5], [0.78, 0.66], [0.85, 0.9]],
+  [[0.42, 0.35], [0.15, 0.3]],
+];
+
+function drawStone(ctx, x, y, s, seed, crack) {
+  paintStone(ctx, x, y, s, seed);
+  const n = Math.round(crack * CRACKS.length);
+  if (!n) return;
+  ctx.strokeStyle = 'rgba(30,26,34,0.85)';
+  ctx.lineWidth = Math.max(1, s * 0.05);
+  ctx.lineJoin = 'round';
+  for (let k = 0; k < n; k++) {
+    const line = CRACKS[(k + seed) % CRACKS.length];
+    ctx.beginPath();
+    line.forEach(([cx, cy], j) => (j ? ctx.lineTo : ctx.moveTo).call(ctx, x + s * cx, y + s * cy));
+    ctx.stroke();
+  }
 }
 
 // Fundo fixo (terra em camadas, pedrinhas, raízes), refeito só ao redimensionar.
@@ -153,6 +205,20 @@ export function burst(x, y, color, reduced) {
       x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.5, t: 0,
       life: 0.35 + Math.random() * 0.3, size: 0.07 + Math.random() * 0.08,
       color: i % 3 === 0 ? '#fff3d6' : color,
+    });
+  }
+}
+
+export function rubble(x, y, reduced) {
+  rings.push({ x, y, t: 0 });
+  if (reduced) return;
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const v = 1 + Math.random() * 3;
+    particles.push({
+      x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2, t: 0,
+      life: 0.45 + Math.random() * 0.35, size: 0.1 + Math.random() * 0.14,
+      color: i % 2 ? '#8c8893' : '#5d5963',
     });
   }
 }
@@ -390,6 +456,11 @@ export function render(ctx, state, cell, time, dt, dpr = 1, reduced = false) {
       const i = y * board.w + x;
       const c = board.cells[i];
       if (c === EMPTY) continue;
+      if (c === STONE) {
+        const { sugar, around } = stoneHold(board, i);
+        drawStone(ctx, x * cell, y * cell, cell, i, around ? 1 - sugar / around : 1);
+        continue;
+      }
       let ox = 0;
       let oy = 0;
       if (state.reserved.has(i) && !reduced) {
@@ -438,7 +509,7 @@ export function drawThumb(canvas, cells, w, h, palette, px) {
   canvas.height = h * px;
   const c = canvas.getContext('2d');
   cells.forEach((v, i) => {
-    c.fillStyle = palette[v];
+    c.fillStyle = v === STONE ? '#8c8893' : palette[v];
     c.fillRect((i % w) * px, Math.floor(i / w) * px, px, px);
   });
 }

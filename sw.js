@@ -1,7 +1,7 @@
 // Service worker: guarda o jogo no aparelho para abrir sem internet.
 // VERSION e ASSETS são gerados por `node tools/stamp.mjs` — não edite à mão.
 // @stamp-start
-const VERSION = '4964f0387d0d';
+const VERSION = 'd2064cbb38d9';
 const ASSETS = [
   './',
   'index.html',
@@ -16,7 +16,8 @@ const ASSETS = [
   'src/game.js',
   'src/levels.js',
   'src/main.js',
-  'src/render.js'
+  'src/render.js',
+  'src/solver.js'
 ];
 // @stamp-end
 

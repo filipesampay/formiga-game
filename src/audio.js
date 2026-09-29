@@ -93,6 +93,25 @@ export function pop() {
   click(0.18);
 }
 
+// Pedra quebrando: estalo grave com ruído.
+export function crumble() {
+  if (!ready()) return;
+  const len = Math.floor(ctx.sampleRate * 0.25);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2;
+  const src = ctx.createBufferSource();
+  const f = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+  f.type = 'lowpass';
+  f.frequency.value = 900;
+  g.gain.value = 0.5;
+  src.buffer = buf;
+  src.connect(f).connect(g).connect(master);
+  src.start();
+  tone({ type: 'triangle', from: 160, to: 70, dur: 0.22, vol: 0.3 });
+}
+
 export function boxDone() {
   if (!ready()) return;
   tone({ type: 'triangle', from: 880, to: 880, dur: 0.14, vol: 0.18 });

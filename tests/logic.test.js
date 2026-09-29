@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  EMPTY, createBoard, createRng, colorCounts, computeReach, isAccessible, findTarget, buildPath,
+  EMPTY, STONE, createBoard, createRng, colorCounts, computeReach, isAccessible, findTarget, buildPath,
+  isClearable, crumbleStones,
 } from '../src/board.js';
 import { splitCount } from '../src/boxes.js';
 import { newGame, update, pickLane } from '../src/game.js';
 import { TEMPLATES, ART_W, ART_H, COLORS } from '../src/art.js';
 import { buildLevel, levelParams } from '../src/levels.js';
+import { solvable } from '../src/solver.js';
 
 const _ = EMPTY;
 
@@ -33,7 +35,9 @@ test('modelos de pixel art são 12x14 e só usam chars da legenda', () => {
 test('fases 1..60: quadro cheio, paleta pequena, caixas somam cada cor', () => {
   for (let level = 1; level <= 60; level++) {
     const s = newGame(level);
-    assert.ok(s.board.cells.every((c) => c >= 0 && c < s.board.palette.length), `fase ${level}`);
+    assert.ok(s.board.cells.every((c) => c === STONE || (c >= 0 && c < s.board.palette.length)), `fase ${level}`);
+    assert.ok(isClearable(s.board), `fase ${level}: pedras trancam açúcar`);
+    assert.ok(solvable(s.board, s.lanes), `fase ${level}: fila de caixas sem solução`);
     assert.ok(s.board.palette.length >= 2 && s.board.palette.length <= 10, `fase ${level}: ${s.board.palette.length} cores`);
     const counts = colorCounts(s.board, s.colorCount);
     const sums = new Array(s.colorCount).fill(0);
@@ -86,6 +90,33 @@ test('bolsão vazio fechado não conta como caminho', () => {
   const reach = computeReach(b);
   assert.equal(findTarget(b, reach, 3, new Set()), null);
   assert.ok(!isAccessible(b, reach, 7));
+});
+
+test('pedra quebra só quando todo açúcar encostado nela some (pedra vizinha não conta)', () => {
+  const S = STONE;
+  const b = createBoard(4, 3, [
+    0, 1, 1, 0,
+    1, S, S, 1,
+    0, 1, 1, 0,
+  ]);
+  assert.deepEqual(crumbleStones(b), []);
+  b.cells[1] = _;
+  b.cells[4] = _;
+  assert.deepEqual(crumbleStones(b), []); // ainda tem açúcar embaixo (9)
+  b.cells[9] = _;
+  assert.deepEqual(crumbleStones(b), [5]); // a da direita segue presa por 2, 7, 10
+  for (const i of [2, 7, 10]) b.cells[i] = _;
+  assert.deepEqual(crumbleStones(b), [6]);
+});
+
+test('resolvedor detecta açúcar trancado por pedras', () => {
+  const S = STONE;
+  // cubo do centro cercado de pedras: as pedras esperam o cubo, o cubo espera as pedras
+  const preso = createBoard(3, 3, [S, S, S, S, 0, S, S, S, S]);
+  preso.doors = new Set(['1.5,3.5']);
+  assert.ok(!isClearable(preso));
+  const livre = createBoard(3, 3, [0, S, 0, 0, 0, 0, 0, 0, 0]);
+  assert.ok(isClearable(livre));
 });
 
 test('prefere a entrada mais perto do formigueiro (embaixo)', () => {

@@ -1,9 +1,10 @@
 // Estado do jogo e simulação das formigas (sem DOM — testável no node).
 import {
-  colorCounts, computeReach, findTarget, buildPath, isCleared, createRng, EMPTY,
+  colorCounts, computeReach, findTarget, buildPath, isCleared, createRng, crumbleStones, EMPTY,
 } from './board.js';
 import { generateLanes, SLOTS } from './boxes.js';
 import { buildLevel, levelSeed } from './levels.js';
+import { solvable } from './solver.js';
 
 export const TUNNEL_H = 3.2;
 export const GUTTER = 0.9; // corredor em volta do desenho (laterais e topo)
@@ -36,12 +37,22 @@ export function newGame(level = 1, override = {}) {
   // profundidade = distância até a borda mais perto (0 = borda, 1 = centro)
   const maxRing = Math.floor((Math.min(board.w, board.h) - 1) / 2) || 1;
   board.cells.forEach((c, i) => {
+    if (c < 0) return;
     const x = i % board.w;
     const y = Math.floor(i / board.w);
     depths[c].push(Math.min(x, y, board.w - 1 - x, board.h - 1 - y) / maxRing);
   });
   depths.forEach((d) => d.sort((a, b) => a - b));
-  const lanes = generateLanes(colorCounts(board, colorCount), rng, params, depths);
+  // fila de caixas sempre com solução: se o resolvedor não vence, sorteia outra ordem;
+  // se insistir, a ordem vai ficando mais "justa" (menos caos)
+  const counts = colorCounts(board, colorCount);
+  let lanes = null;
+  for (let k = 0; k < 40 && !lanes; k++) {
+    const chaos = params.chaos * (1 - Math.floor(k / 8) * 0.2);
+    const candidate = generateLanes(counts, rng, { ...params, chaos }, depths);
+    if (solvable(board, candidate)) lanes = candidate;
+  }
+  lanes ??= generateLanes(counts, rng, { ...params, chaos: 0 }, depths);
   return {
     level, name: lv.name, params, rng, board, colorCount, lanes,
     art: board.cells.slice(),
@@ -53,7 +64,7 @@ export function newGame(level = 1, override = {}) {
     status: 'playing',
     stuckTime: 0,
     picked: 0,
-    total: board.cells.length,
+    total: board.cells.filter((c) => c >= 0).length,
     nextId: 1,
     events: [],
   };
@@ -145,6 +156,11 @@ function pickUp(state, ant) {
   ant.carrying = board.cells[ant.target];
   board.cells[ant.target] = EMPTY;
   state.reserved.delete(ant.target);
+  const broken = crumbleStones(board);
+  if (broken.length) {
+    const { w } = board;
+    state.events.push({ type: 'crumble', cells: broken.map((i) => ({ x: (i % w) + 0.5, y: Math.floor(i / w) + 0.5 })) });
+  }
   state.reach = computeReach(board);
   state.picked++;
   const box = ant.box;
