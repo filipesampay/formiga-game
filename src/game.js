@@ -7,14 +7,18 @@ import { generateLanes, SLOTS } from './boxes.js';
 export const BOARD_W = 12;
 export const BOARD_H = 14;
 export const TUNNEL_H = 3.2;
-export const ANT_SPEED = 7; // células por segundo
-const SPAWN_EVERY = 0.12;
+export const ANT_SPEED = 3.5; // células por segundo
+const SPAWN_EVERY = 0.25;
 const STUCK_DELAY = 0.8;
 
-export function newGame(seed = Date.now(), colorCount = 5) {
+// Dificuldade: mais cores, caixas pequenas (mais decisões) e só 3 colunas para escolher.
+export const DIFFICULTY = { colorCount: 7, seeds: 10, noise: 1.2, boxMin: 3, boxMax: 8, lanes: 3 };
+
+export function newGame(seed = Date.now(), diff = DIFFICULTY) {
   const rng = createRng(seed);
-  const board = generateBoard(BOARD_W, BOARD_H, colorCount, rng);
-  const lanes = generateLanes(colorCounts(board, colorCount), rng);
+  const { colorCount } = diff;
+  const board = generateBoard(BOARD_W, BOARD_H, colorCount, rng, diff);
+  const lanes = generateLanes(colorCounts(board, colorCount), rng, diff);
   return {
     seed, rng, board, colorCount, lanes,
     slots: new Array(SLOTS).fill(null),

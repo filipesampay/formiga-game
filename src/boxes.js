@@ -18,16 +18,16 @@ export function splitCount(total, rng, min = 4, max = 12) {
   return parts;
 }
 
-export function generateLanes(counts, rng) {
+export function generateLanes(counts, rng, { boxMin = 4, boxMax = 12, lanes: laneCount = LANES } = {}) {
   const boxes = [];
   counts.forEach((total, color) => {
-    for (const n of splitCount(total, rng)) boxes.push({ color, total: n });
+    for (const n of splitCount(total, rng, boxMin, boxMax)) boxes.push({ color, total: n });
   });
   for (let i = boxes.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [boxes[i], boxes[j]] = [boxes[j], boxes[i]];
   }
-  const lanes = Array.from({ length: LANES }, () => []);
-  boxes.forEach((b, i) => lanes[i % LANES].push(b));
+  const lanes = Array.from({ length: laneCount }, () => []);
+  boxes.forEach((b, i) => lanes[i % laneCount].push(b));
   return lanes;
 }

@@ -2,7 +2,7 @@
 import { EMPTY } from './board.js';
 import { TUNNEL_H } from './game.js';
 
-export const PALETTE = ['#ff4f8b', '#ffc233', '#1fc8a9', '#4a7dff', '#a45cf0', '#ff7a2f'];
+export const PALETTE = ['#ff4f8b', '#ffc233', '#1fc8a9', '#4a7dff', '#a45cf0', '#ff7a2f', '#7fd13b'];
 
 function shade(hex, amt) {
   const n = parseInt(hex.slice(1), 16);

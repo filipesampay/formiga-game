@@ -17,10 +17,10 @@ export function createBoard(w, h, cells) {
 }
 
 // Formas orgânicas (regiões por semente com ruído) + retângulos e círculos por cima.
-export function generateBoard(w, h, colorCount, rng) {
+export function generateBoard(w, h, colorCount, rng, { seeds: seedBase = 8, noise = 1.2 } = {}) {
   const board = createBoard(w, h);
   const seeds = [];
-  const seedCount = 8 + Math.floor(rng() * 5);
+  const seedCount = seedBase + Math.floor(rng() * 5);
   for (let i = 0; i < seedCount; i++) {
     seeds.push({
       x: rng() * w,
@@ -34,7 +34,7 @@ export function generateBoard(w, h, colorCount, rng) {
       let best = Infinity;
       let color = 0;
       for (const s of seeds) {
-        const d = Math.hypot(x - s.x, y - s.y) * s.s + rng() * 1.2;
+        const d = Math.hypot(x - s.x, y - s.y) * s.s + rng() * noise;
         if (d < best) {
           best = d;
           color = s.c;

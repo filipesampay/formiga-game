@@ -54,6 +54,7 @@ function syncUI() {
       <span class="fill" style="width:${pct}%"></span></div>`;
   }).join('');
 
+  lanesEl.style.gridTemplateColumns = `repeat(${state.lanes.length}, 1fr)`;
   lanesEl.innerHTML = state.lanes.map((lane, i) => {
     if (!lane.length) return '<div class="lane"><div class="none"></div><div class="more"></div></div>';
     const [top, next] = lane;
