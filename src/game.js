@@ -90,6 +90,17 @@ function spawnAnt(state, box) {
   });
 }
 
+function pathLength(path) {
+  let d = 0;
+  for (let i = 1; i < path.length; i++) d += Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+  return d;
+}
+
+// Caminho curto: ritmo normal. Caminho longo (cubos lá de cima): acelera aos poucos, até 2,6x.
+export function tripBoost(len) {
+  return Math.min(2.6, Math.max(1, 1 + (len - 4) * 0.15));
+}
+
 function assignTarget(state, ant) {
   const t = findTarget(state.board, state.reach, ant.color, state.reserved);
   if (!t) return false;
@@ -97,13 +108,14 @@ function assignTarget(state, ant) {
   ant.target = t.cell;
   ant.path = [{ x: ant.x, y: ant.y }, ...buildPath(state.board, state.reach, t)];
   ant.seg = 1;
+  ant.speed = ANT_SPEED * tripBoost(pathLength(ant.path));
   ant.state = 'go';
   return true;
 }
 
 // Move formiga ao longo do caminho; retorna true ao chegar no fim.
 function walk(ant, dt) {
-  let left = ANT_SPEED * dt;
+  let left = (ant.speed ?? ANT_SPEED) * dt;
   while (left > 0 && ant.seg < ant.path.length) {
     const p = ant.path[ant.seg];
     const dx = p.x - ant.x;
